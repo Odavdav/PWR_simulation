@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Simulateur REP</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- ======================= BARRE DU HAUT ======================= -->
+  <header id="barre">
+    <div id="titre">Simulateur REP<small id="sous-titre">Projet Procom · IMT Atlantique</small></div>
+    <div id="chip-mission" data-aide="Mission en cours|Cliquez pour revoir les objectifs ou changer de mission."><b id="chip-nom">Mode libre</b><span id="chip-texte"></span><div class="jauge"><i id="chip-jauge"></i></div></div>
+    <div id="temps" data-aide="Contrôle du temps|Pause (touche Espace), temps réel ×1 ou accéléré. Les vitesses élevées servent pour les phénomènes lents : refroidissement, xénon (plusieurs heures).">
+      <button id="btn-pause">⏸ Pause</button>
+      <button class="vit" data-v="1">×1</button><button class="vit" data-v="2">×2</button><button class="vit" data-v="5">×5</button><button class="vit" data-v="10">×10</button><button class="vit" data-v="60">×60</button><button class="vit" data-v="600">×600</button><button class="vit" data-v="3600" style="border-right:0">×3600</button>
+    </div>
+    <div id="horloge" data-aide="Horloge|Temps écoulé dans la simulation (heures : minutes : secondes).">00:00:00<small id="horloge-etat">temps réel</small></div>
+    <button class="bt accent" id="btn-missions" data-aide="Missions|Parcours à difficulté croissante : chaque mission débloque de nouvelles commandes.">🎯 Missions</button>
+    <button class="bt incident" id="btn-incident" data-aide="Incidents|Déclenchez un incident ou un accident à n'importe quel moment. Le temps se fige, la cause est expliquée, puis vous êtes guidé pas à pas.">⚡ Incident</button>
+    <button class="bt" id="btn-aide" data-aide="Aide|Glossaire des sigles, rappel des principes et relance du tutoriel.">❔ Aide</button>
+    <button class="bt" id="btn-vue" data-aide="Affichage complet ou simplifié|En affichage simplifié, l'écran ne montre que l'essentiel : quelques cadrans, les commandes utiles à la mission, aucune courbe. Cliquez pour passer de l'un à l'autre.">👁 Complet</button>
+    <button class="bt" id="btn-options" data-aide="Options|Palier (900 ou 1300 MWe), avancement du cycle, son, mode expert.">⚙</button>
+  </header>
+
+  <!-- ======================= ZONE PRINCIPALE ======================= -->
+  <main id="principal">
+    <aside id="cadrans" class="carte"></aside>
+
+    <section id="centre">
+      <div id="synoptique" class="carte">
+        <div id="objectifs"></div>
+        <div id="svg-hote" style="position:absolute;inset:0"></div>
+        <div id="fin-partie"><div><h2 id="fin-titre"></h2><p id="fin-texte" style="color:#f3c6c6;max-width:440px;margin:0 auto 12px"></p><button class="bt accent" id="fin-recommencer">Recommencer</button></div></div>
+      </div>
+      <div id="bas" class="carte">
+        <div id="onglets">
+          <button data-o="courbes" class="actif">Courbes</button>
+          <button data-o="reac">Bilan de réactivité</button>
+          <button data-o="pt">Diagramme pression-température</button>
+          <button data-o="crayon">Crayon combustible</button>
+          <button data-o="journal">Journal</button>
+          <span class="droite" id="onglet-note"></span>
+        </div>
+        <div id="panneau">
+          <div id="p-courbes" class="actif"></div>
+          <div id="p-reac"></div>
+          <div id="p-pt"><div class="graphe" style="height:100%"><h4>Point de fonctionnement du primaire <span class="leg"><i style="background:var(--s2)"></i>courbe de saturation (ébullition)</span><span class="leg"><i style="background:var(--s1)"></i>sortie du cœur</span><span class="leg"><i style="background:var(--s3)"></i>secondaire (GV)</span></h4><div class="zone"><canvas id="cv-pt"></canvas></div></div></div>
+          <div id="p-crayon"><div class="graphe" style="height:100%"><h4 id="crayon-titre">Température dans un crayon combustible, du centre de la pastille jusqu'à l'eau</h4><div class="zone"><canvas id="cv-crayon"></canvas></div></div></div>
+          <div id="p-journal"><div id="journal"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======================= COMMANDES ======================= -->
+    <aside id="commandes" class="carte">
+      <div class="grp" id="g-curseurs">
+        <h3>Curseurs de conduite</h3>
+        <div id="curseurs"></div>
+      </div>
+
+      <div class="grp" id="g-reacteur">
+        <h3>Réacteur</h3>
+        <div data-verrou="autoR"><label class="coche" id="c-autoR" data-aide="Pilotage automatique de la température|Le groupe de grappes R bouge tout seul pour que la température moyenne du primaire suive sa valeur de référence (qui dépend de la charge turbine). Décochez pour piloter les barres vous-même."><input type="checkbox" id="i-autoR"> Pilotage automatique des grappes (température)</label></div>
+        <div class="rang" data-verrou="arret"><label class="t">Barres d'arrêt</label>
+          <button class="tg large" id="b-S" data-aide="Barres d'arrêt (groupe S)|Barres de sécurité, entièrement extraites en fonctionnement. Elles tombent dans le cœur à l'arrêt automatique. Il faut les extraire avant de démarrer."></button></div>
+        <div class="rang" data-verrou="arret"><button id="btn-aar" data-aide="Arrêt automatique du réacteur (AAR)|Fait chuter toutes les grappes dans le cœur en 2 secondes : la réaction en chaîne s'arrête. Il reste la puissance résiduelle (environ 6 % juste après, 1,5 % après 15 minutes) qu'il faut continuer à évacuer.">ARRÊT D'URGENCE (AAR)</button></div>
+        <div class="rang" data-verrou="arret"><button class="tg large" id="b-rearm" data-aide="Réarmer l'AAR|Après un arrêt automatique, autorise de nouveau l'extraction des grappes. Refusé tant que la cause de l'arrêt est présente.">Réarmer l'AAR</button></div>
+      </div>
+
+      <div class="grp" id="g-primaire">
+        <h3>Circuit primaire</h3>
+        <div class="rang" data-verrou="pompes" id="r-pompes"><label class="t">Pompes primaires</label></div>
+        <div class="rang" data-verrou="pzr"><label class="t">Pressuriseur</label>
+          <button class="tg neutre" id="b-pzrAuto" data-aide="Régulation de pression|En automatique, les chaufferettes et l'aspersion tiennent la pression à la consigne (curseur « P primaire »). En manuel, vous les commandez vous-même.">Auto</button>
+          <button class="tg neutre" id="b-chauf" data-aide="Chaufferettes|Résistances électriques au fond du pressuriseur : elles vaporisent de l'eau, la pression monte (lentement, environ 1 bar par minute).">Chauff.</button>
+          <button class="tg neutre" id="b-asp" data-aide="Aspersion|De l'eau de branche froide est pulvérisée dans la vapeur du pressuriseur : la vapeur se condense, la pression baisse. Nécessite au moins une pompe primaire en service.">Aspersion</button></div>
+        <div class="rang" data-verrou="pzr"><label class="t">Soupape</label>
+          <button class="tg neutre" id="b-soupOuv" data-aide="Soupape du pressuriseur|S'ouvre toute seule à 166 bar pour protéger le circuit. Peut être ouverte à la main pour dépressuriser rapidement.">Ouvrir</button>
+          <button class="tg neutre" id="b-soupIsol" data-aide="Vanne d'isolement de la soupape|Ferme la ligne en amont de la soupape. À utiliser si la soupape reste bloquée ouverte.">Isoler</button></div>
+        <div class="rang" data-verrou="is"><label class="t">Injection sécu.</label>
+          <button class="tg neutre" id="b-is" data-aide="Injection de sécurité (IS)|Pompes qui injectent de l'eau froide borée (2500 ppm) dans le primaire. Démarre toute seule sous 121 bar. Elle provoque l'arrêt du réacteur et l'isolement de l'eau alimentaire normale.">Démarrer</button>
+          <button class="tg neutre" id="b-isStop" data-aide="Arrêter l'IS|À faire seulement quand le primaire est de nouveau sous contrôle : niveau pressuriseur revenu (> 20 %) et marge à la saturation suffisante (> 20 °C). Sinon l'IS remplit et repressurise le circuit.">Arrêter</button></div>
+      </div>
+
+      <div class="grp" id="g-secondaire">
+        <h3>Circuit secondaire</h3>
+        <div class="rang" data-verrou="groupe"><label class="t">Turbine</label>
+          <button class="tg neutre" id="b-lancer" data-aide="Lancer la turbine|Admet un peu de vapeur pour amener la turbine à 1500 tr/min. Il faut au moins 3 % de puissance réacteur.">Lancer</button>
+          <button class="tg neutre" id="b-coupler" data-aide="Coupler au réseau|Ferme le disjoncteur de l'alternateur quand la turbine tourne à 1500 tr/min : la centrale produit de l'électricité.">Coupler</button>
+          <button class="tg neutre" id="b-declT" data-aide="Déclencher la turbine|Ferme brutalement l'admission vapeur. La vapeur est alors envoyée au condenseur par le contournement (GCT).">Déclencher</button></div>
+        <div class="rang" data-verrou="secondaire" id="r-viv"><label class="t" data-aide="Vannes d'isolement vapeur (VIV)|Une par générateur de vapeur. Fermer la VIV d'un GV l'isole du collecteur vapeur : indispensable en cas de rupture de tube (RTGV) pour confiner la radioactivité.">Vannes vapeur</label></div>
+        <div class="rang" data-verrou="secondaire" id="r-alim"><label class="t" data-aide="Alimentation en eau des GV|Coupe l'arrivée d'eau (normale et secours) vers un GV. À faire sur un GV accidenté pour ne pas le remplir.">Alimentation</label></div>
+        <div class="rang" data-verrou="secondaire" id="r-asg"><label class="t" data-aide="ASG : alimentation de secours des GV|Démarre toute seule si l'eau alimentaire normale est perdue ou si un niveau GV est très bas. Peut être forcée en marche ou arrêtée.">Secours ASG</label>
+          <button class="tg neutre" data-asg="auto">Auto</button><button class="tg neutre" data-asg="marche">Marche</button><button class="tg neutre" data-asg="arret">Arrêt</button></div>
+      </div>
+    </aside>
+  </main>
+
+  <!-- ======================= VERRIÈRE + AIDE ======================= -->
+  <footer id="pied">
+    <div id="verriere" class="carte"></div>
+    <div id="info" class="carte"><b id="info-titre">Aide contextuelle</b><span id="info-texte">Survolez un cadran, un bouton ou un élément du schéma pour savoir à quoi il sert.</span></div>
+  </footer>
+</div>
+
+<!-- guide -->
+<div id="g-voile"></div><div id="g-trou"></div><div id="g-fleche"><span>➤</span></div>
+<div class="gel-bandeau" id="g-gel">❄ TEMPS FIGÉ</div>
+<div id="g-bulle"></div>
+<div id="modal"><div class="boite"><header><h2 id="modal-titre"></h2><button class="bt" id="modal-fermer">✕</button></header><div class="contenu" id="modal-contenu"></div></div></div>
+<div id="toast"></div>
+
+<script src="modele/eau.js"></script>
+<script src="modele/params.js"></script>
+<script src="modele/neutronique.js"></script>
+<script src="modele/thermo.js"></script>
+<script src="modele/surete.js"></script>
+<script src="modele/moteur.js"></script>
+<script src="ui/widgets.js"></script>
+<script src="ui/synoptique.js"></script>
+<script src="ui/guide.js"></script>
+<script src="ui/cours.js"></script>
+<script src="ui/contenus.js"></script>
+<script src="ui/app.js"></script>
+</body>
+</html>
